@@ -3,87 +3,31 @@ from __future__ import annotations
 from functools import reduce
 import numbers
 import operator
-from typing import Any, Union
 
 import numpy as np
 
 import pandas as pd
-from pandas.api.extensions import (
-    ExtensionArray,
-    ExtensionDtype,
-    register_extension_dtype,
-    register_series_accessor,
-)
+from pandas.api.extensions import ExtensionArray
 from pandas.core.algorithms import take
 
-import pyarrow as pa
 
-
-# TODO structured dtype should be usable on its own (and registered), with proper format (in square brackets)
-
-
-class StructuredDtype(ExtensionDtype):
+class DistributionArray(ExtensionArray):
     """..."""
 
-    name: str
-    dtype: np.dtype
-    type: type
-
-    na_value = None
-    _na_values: tuple
-    # TODO check the whole NA aspect (e.g. _can_hold_na, _hasna)
-
-    @property
-    def names(self) -> list[str]:
-        return list(self.dtype.names)
-
-    @classmethod
-    def construct_array_type(cls) -> type[StructuredArray]:
-        return StructuredArray
-
-    @classmethod
-    def construct_from_string(cls, string: str) -> type[StructuredArray]:
-        if string == cls.name:
-            return cls()
-        raise TypeError
-
-    def __from_arrow__(
-        self, array: Union[pa.Array, pa.ChunkedArray]
-    ) -> StructuredArray:
-        if isinstance(array, pa.ChunkedArray):
-            array = array.combine_chunks()
-        data = np.empty(len(array), dtype=self.dtype)
-        for name in self.dtype.names:
-            data[name] = array.field(name)
-        cls = self.construct_array_type()
-        return cls(data, self)
-
-    def _get_scalar(self, array: np.ndarray, index: int) -> Any:
-        return self.type(array[index])
-
-    def _set_scalar(self, array: np.ndarray, index: int, value: Any) -> None:
-        if value is None:
-            array[index] = self._na_values
-        else:
-            array[index] = value
-
-
-class StructuredArray(ExtensionArray):
-    """..."""
-
-    def __init__(self, array: np.ndarray, dtype: StructuredDtype):
-        assert array.dtype == dtype.dtype
+    def __init__(self, array, dtype):
         self._array = array
         self._dtype = dtype
 
     @classmethod
+    def empty(cls, length, dtype):
+        array = np.zeros(length, dtype=dtype._internal_dtype)
+        return cls(array, dtype)
+
+    @classmethod
     def _from_sequence(cls, scalars, *, dtype=None, copy=False):
-        # TODO improve this
         if dtype is None:
             raise ValueError
-        if not isinstance(dtype, StructuredDtype):
-            raise TypeError
-        array = np.zeros(len(scalars), dtype=dtype.dtype)
+        array = np.zeros(len(scalars), dtype=dtype._internal_dtype)
         for i, scalar in enumerate(scalars):
             dtype._set_scalar(array, i, scalar)
         return cls(array, dtype)
@@ -98,16 +42,28 @@ class StructuredArray(ExtensionArray):
     def _values_for_argsort(self):
         return self._array
 
+    # TODO _values_for_json?
+
+    # TODO _formatter?
+
+    def __array__(self, dtype=None):
+        # TODO would be nice to return the array itself, but structured arrays do not play nice with Pandas internals...
+        return np.array(
+            [self._dtype._get_scalar(self._array, i) for i in range(len(self))]
+        )
+
+    # TODO __array_ufunc__?
+
     def __getitem__(self, indexer):
         if isinstance(indexer, numbers.Integral):
-            return self._dtype._get_scalar(self._array, indexer)
+            return self._dtype._get_scalar(self._array, int(indexer))
         indexer = pd.api.indexers.check_array_indexer(self, indexer)
         cls = type(self)
         return cls(self._array[indexer], self._dtype)
 
     def __setitem__(self, indexer, value):
         if isinstance(indexer, numbers.Integral):
-            self._dtype._set_scalar(self._array, indexer, value)
+            self._dtype._set_scalar(self._array, int(indexer), value)
         else:
             indexer = pd.api.indexers.check_array_indexer(self, indexer)
             # TODO more flexibility in accepted types?
@@ -117,22 +73,22 @@ class StructuredArray(ExtensionArray):
         return len(self._array)
 
     def __eq__(self, other):
-        if not isinstance(other, StructuredArray):
+        if not isinstance(other, DistributionArray):
             return NotImplemented
         if self._dtype != other._dtype:
             return NotImplemented
         return self._array == other._array
 
     @property
-    def dtype(self) -> StructuredDtype:
+    def dtype(self):
         return self._dtype
 
     @property
-    def nbytes(self) -> int:
+    def nbytes(self):
         return self._array.nbytes
 
     def isna(self):
-        arrays = [np.isnan(self._array[name]) for name in self._dtype.dtype.names]
+        arrays = [np.isnan(self._array[name]) for name in self._dtype.names]
         return reduce(operator.or_, arrays)
 
     def copy(self):
@@ -163,14 +119,14 @@ class StructuredArray(ExtensionArray):
     # TODO check other methods that should be overridden
 
     def __arrow_array__(self, type=None):
-        names = self._dtype.dtype.names
+        import pyarrow as pa
+
+        names = self._dtype.names
         arrays = [self._array[name] for name in names]
         return pa.StructArray.from_arrays(arrays, names)
 
-    def __getattr__(self, name) -> np.ndarray:
-        if name in self._dtype.dtype.names:
+    def view_field(self, name: str):
+        try:
             return self._array[name]
-        raise AttributeError(name)
-
-    def __dir__(self):
-        return super().__dir__() + list(self._dtype.dtype.names)
+        except ValueError as e:
+            raise KeyError(name) from e

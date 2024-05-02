@@ -3,19 +3,19 @@ requires = ["setuptools>=61.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "structured"
+name = "distribution"
+version = "0.1.0"
 authors = []
 description = ""
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "numpy~=1.24",
-    "pandas~=2.0",
+    "numpy",
+    "pandas",
 ]
-dynamic = ["version"]
 
 [tool.setuptools.dynamic]
-version = {attr = "structured.__version__"}
+version = {attr = "distribution.__version__"}
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
