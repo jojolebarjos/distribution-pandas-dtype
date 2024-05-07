@@ -8,7 +8,7 @@ version = "0.1.0"
 authors = []
 description = ""
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.8"
 dependencies = [
     "numpy",
     "pandas",
@@ -19,7 +19,7 @@ version = {attr = "distribution.__version__"}
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
-target-version = "py310"
+target-version = "py38"
 line-length = 88
 
 [tool.ruff.lint]
