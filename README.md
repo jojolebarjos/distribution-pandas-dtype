@@ -23,7 +23,7 @@ At import, the extension dtypes are registered into the pandas ecosystem.
 Behind the scenes, the data is stored as a structured NumPy array, which is designed to store C-style structures.
 The multi-values nature of these objects require some care, and does not play nicely with some indexing operations; as such, Pandas does not accept structured NumPy dtypes for their built-in series.
 
-To circumvent this limitation, there are several approaches to initialize distribution series
+To circumvent this limitation, there are several approaches to initialize distribution series.
 The simplest one is to create a zero-initialized series, and update the fields separately:
 
 ```py
