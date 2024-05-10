@@ -46,4 +46,4 @@ def test_pyarrow():
         path = os.path.join(folder, "foo.parquet")
         df.to_parquet(path)
         reloaded_df = pd.read_parquet(path)
-    assert df.compare(reloaded_df).empty
+    pd.testing.assert_frame_equal(df, reloaded_df)
