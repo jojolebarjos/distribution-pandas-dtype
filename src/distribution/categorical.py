@@ -13,6 +13,7 @@ import scipy.stats
 from .base import Distribution, DistributionDtype
 
 
+NAME_PATTERN = re.compile(r"^\w+$")
 STRING_PATTERN = re.compile(r"^dist\[categorical((?:\s*,\s*\w+)*)\s*\]$")
 
 
@@ -39,7 +40,7 @@ class CategoricalDtype(DistributionDtype):
 
     def __init__(self, names: Sequence[str]) -> None:
         for name in names:
-            if not name.isidentifier():
+            if not NAME_PATTERN.match(name):
                 raise ValueError(name)
         self._internal_dtype = np.dtype([(name, "f8") for name in names])
 
