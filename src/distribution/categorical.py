@@ -13,8 +13,9 @@ import scipy.stats
 from .base import Distribution, DistributionDtype
 
 
-NAME_PATTERN = re.compile(r"^\w+$")
-STRING_PATTERN = re.compile(r"^dist\[categorical((?:\s*,\s*\w+)*)\s*\]$")
+# TODO maybe even allow some escape characters?
+NAME_PATTERN = re.compile(r"^[^\s,\[\]](?:(?: |[^\s,\[\]])*[^\s,\[\]])?$")
+STRING_PATTERN = re.compile(r"^dist\[categorical\s*,([^\]]*)\]$")
 
 
 @dataclass
@@ -52,7 +53,7 @@ class CategoricalDtype(DistributionDtype):
     def construct_from_string(cls, string: str) -> CategoricalDtype:
         match = STRING_PATTERN.match(string)
         if match:
-            names = [name.strip() for name in match.group(1).split(",")[1:]]
+            names = [name.strip() for name in match.group(1).split(",")]
             return cls(names)
         raise TypeError(f"Cannot construct a '{cls.__name__}' from '{string}'")
 
@@ -62,7 +63,7 @@ class CategoricalDtype(DistributionDtype):
 
     def _set_scalar(self, array, index, value):
         if value is None:
-            array[index] = np.NaN
+            array[index] = np.nan
         else:
             if value.dtype != self:
                 raise TypeError

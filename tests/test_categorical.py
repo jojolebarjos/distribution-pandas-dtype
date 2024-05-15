@@ -4,6 +4,8 @@ import tempfile
 import numpy as np
 import pandas as pd
 
+import pytest
+
 from distribution import (
     Categorical,
     CategoricalDtype,
@@ -51,3 +53,10 @@ def test_pyarrow():
         df.to_parquet(path)
         reloaded_df = pd.read_parquet(path)
     pd.testing.assert_frame_equal(df, reloaded_df)
+
+
+def test_names():
+    x = pd.Series(dtype="dist[categorical, hello world,   First Class, A-Z, o'clock]")
+    assert x.dtype.names == ["hello world", "First Class", "A-Z", "o'clock"]
+    with pytest.raises(ValueError, match=r"\["):
+        x = pd.Series(dtype="dist[categorical, []")
